@@ -1,0 +1,100 @@
+{
+  "type": "base",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "89ea907c-6d57-4634-8f5e-56c0b022c4bc",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "campaigns"
+      ],
+      "writes": [
+        "s|tbl|public.campaigns",
+        "n|tbl|public.campaigns",
+        "e|tbl|public.campaigns",
+        "n|rel|public.campaigns",
+        "n|type|public.campaigns",
+        "n|rel|public.campaigns_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    }
+  ],
+  "ddl": [
+    {
+      "schema": "public",
+      "name": "campaigns",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "table": "campaigns",
+      "name": "campaignId",
+      "type": "serial",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "campaigns",
+      "name": "name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "campaigns",
+      "name": "dueDate",
+      "type": "date",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "campaigns",
+      "name": "createdAt",
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "campaigns",
+      "name": "campaigns_pkey",
+      "columns": [
+        "campaignId"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    }
+  ]
+}

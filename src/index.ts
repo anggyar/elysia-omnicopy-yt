@@ -1,23 +1,20 @@
 import { openapi } from "@elysiajs/openapi";
 import { Elysia, t } from "elysia";
-import { Database } from "bun:sqlite";
+// import { Database } from "bun:sqlite";
+import { campaigns } from "./db/schema.js";
 
-const db = new Database("campaigns.db");
-db.run(`
-    CREATE TABLE IF NOT EXISTS campaigns (
-        campaign_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        due_date TEXT,
-        created_at TEXT NOT NULL
-      )
-  `);
+import { drizzle } from "drizzle-orm/node-postgres";
+import { cors } from "@elysia/cors";
+import { eq } from "drizzle-orm";
+import { createInsertSchema } from "drizzle-typebox";
 
-if (!db.query("SELECT 1 FROM campaigns").get()) {
-    db.run(`INSERT INTO campaigns (name, created_at) VALUES (?, ?)`, [
-        "Cyber Monday",
-        new Date().toISOString(),
-    ]);
-}
+const _insertCampaign = createInsertSchema(campaigns);
+const campaignBody = t.Omit(_insertCampaign, ["campaignId", "createdAt"]);
+const db = drizzle({
+    connection: {
+        connectionString: process.env.DATABASE_URL!,
+    },
+});
 
 // const campaigns = [
 //     {
@@ -35,6 +32,7 @@ if (!db.query("SELECT 1 FROM campaigns").get()) {
 // ];
 const app = new Elysia({ prefix: "api/v1" })
     .use(openapi())
+    .use(cors({ origin: true }))
     .onError(({ code, error, status }) => {
         if (code === "NOT_FOUND") return status(404, { error: "Not found" });
         if (code === "VALIDATION")
@@ -42,23 +40,18 @@ const app = new Elysia({ prefix: "api/v1" })
         console.error(error);
         return status(500, { error: "Something went wrong, try again later." });
     })
-    .get("/campaigns", () => {
+    .get("/campaigns", async () => {
         return {
-            data: db
-                .query(
-                    "SELECT campaign_id AS campaignId, name, due_date AS dueDate, created_at AS createdAt FROM campaigns",
-                )
-                .all(),
+            data: await db.select().from(campaigns),
         };
     })
     .get(
         "/campaigns/:id",
-        ({ params: { id }, status }) => {
-            const campaign = db
-                .query(
-                    "SELECT campaign_id AS campaignId, name, due_date AS dueDate, created_at AS createdAt FROM campaigns WHERE campaign_id = ?",
-                )
-                .get(id);
+        async ({ params: { id }, status }) => {
+            const [campaign] = await db
+                .select()
+                .from(campaigns)
+                .where(eq(campaigns.campaignId, id));
 
             if (!campaign) {
                 return status(404, { message: "Campaign not found" });
@@ -74,32 +67,28 @@ const app = new Elysia({ prefix: "api/v1" })
     )
     .post(
         "/campaigns",
-        ({ body, status }) => {
-            const campaign = db
-                .query(
-                    `INSERT INTO campaigns(name, due_date, created_at)
-          VALUES (?, ?,?)
-          RETURNING campaign_id AS campaignId, name, due_date AS dueDate, created_at AS createdAt`,
-                )
-                .get(body.name, body.dueDate ?? null, new Date().toISOString());
+        async ({ body, status }) => {
+            const [campaign] = await db
+                .insert(campaigns)
+                .values(body)
+                .returning();
+
             return status(201, { data: campaign });
         },
         {
-            body: t.Object({
-                name: t.String(),
-                dueDate: t.Optional(t.String({ format: "date" })),
-            }),
+            body: campaignBody,
         },
     )
     .delete(
         "/campaigns/:id",
-        ({ params: { id }, status }) => {
-            const { changes } = db.run(
-                `DELETE FROM campaigns WHERE campaign_id = ?`,
-                [id],
-            );
-            if (changes === 0) {
-                return status(404, { message: "Campaign not found" });
+        async ({ params: { id }, status }) => {
+            const deleted = await db
+                .delete(campaigns)
+                .where(eq(campaigns.campaignId, id))
+                .returning();
+
+            if (deleted.length === 0) {
+                return status(404, { error: "Delete item failed" });
             }
             return status(204, { message: "Campaign deleted successfully" });
         },
@@ -111,13 +100,15 @@ const app = new Elysia({ prefix: "api/v1" })
     )
     .put(
         "/campaigns/:id",
-        ({ params: { id }, body, status }) => {
-            const campaign = db
-                .query(
-                    `UPDATE campaigns SET name = ?, due_date = ? WHERE campaign_id = ?
-          RETURNING campaign_id AS campaignId, name, due_date AS dueDate, created_at AS createdAt`,
-                )
-                .get(body.name, body.dueDate ?? null, id);
+        async ({ params: { id }, body, status }) => {
+            const [campaign] = await db
+                .update(campaigns)
+                .set({
+                    name: body.name,
+                    dueDate: body.dueDate,
+                })
+                .where(eq(campaigns.campaignId, id))
+                .returning();
 
             if (!campaign) {
                 return status(404);
@@ -127,10 +118,7 @@ const app = new Elysia({ prefix: "api/v1" })
         },
         {
             params: t.Object({ id: t.Number() }),
-            body: t.Object({
-                name: t.String(),
-                dueDate: t.Optional(t.String()),
-            }),
+            body: campaignBody,
         },
     )
     .get("/", () => "Hello Anggyar")
